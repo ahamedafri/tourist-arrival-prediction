@@ -12,253 +12,11 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import warnings
 import io
 import os
-from datetime import datetime, timedelta
 
 warnings.filterwarnings('ignore')
 
-# Initialize session state for user management
-def init_session_state():
-    if 'logged_in' not in st.session_state:
-        st.session_state.logged_in = False
-    if 'username' not in st.session_state:
-        st.session_state.username = None
-    if 'user_role' not in st.session_state:
-        st.session_state.user_role = None
-    if 'pending_users' not in st.session_state:
-        st.session_state.pending_users = []
-    if 'approved_users' not in st.session_state:
-        # Default admin user
-        st.session_state.approved_users = [
-            {"email": "admin", "password": "admin123", "role": "Administrator", "approved_by": "System"}
-        ]
-
-def register_user(email, password, role):
-    """Add user to pending list"""
-    new_user = {
-        "email": email,
-        "password": password,
-        "role": role,
-        "requested_date": datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "status": "Pending"
-    }
-    st.session_state.pending_users.append(new_user)
-
-def approve_user(email):
-    """Move user from pending to approved"""
-    for user in st.session_state.pending_users:
-        if user["email"] == email:
-            approved_user = {
-                "email": user["email"],
-                "password": user["password"],
-                "role": user["role"],
-                "approved_by": st.session_state.username,
-                "approved_date": datetime.now().strftime("%Y-%m-%d %H:%M")
-            }
-            st.session_state.approved_users.append(approved_user)
-            st.session_state.pending_users.remove(user)
-            break
-
-def reject_user(email):
-    """Remove user from pending list"""
-    st.session_state.pending_users = [user for user in st.session_state.pending_users if user["email"] != email]
-
-def authenticate(email, password):
-    """Check if user is approved and credentials match"""
-    for user in st.session_state.approved_users:
-        if user["email"].lower() == email.lower() and user["password"] == password:
-            return True, user["role"]
-    return False, None
-
-def show_auth_page():
-    st.markdown('<h1 class="main-header">Sri Lanka Tourism AI Analytics Platform</h1>', unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    
-    with col2:
-        if st.session_state.get('auth_mode') is None:
-            st.session_state.auth_mode = "Login"
-            
-        if st.session_state.auth_mode == "Login":
-            show_login_form()
-        else:
-            show_signup_form()
-
-def show_login_form():
-    st.markdown("""
-    <div class="metric-card">
-        <h2>🔐 Login to System</h2>
-        <p>Enter your approved credentials</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Center-aligned toggle between login and signup
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col2:
-        auth_options = st.radio("", ["Login", "Sign Up"], horizontal=True, key="auth_radio")
-        if auth_options != st.session_state.auth_mode:
-            st.session_state.auth_mode = auth_options
-            st.rerun()
-    
-    with st.form("login_form"):
-        email = st.text_input("📧 Email")
-        password = st.text_input("🔒 Password", type="password")
-        submitted = st.form_submit_button(" Login", use_container_width=True)
-        
-        if submitted:
-            if email and password:
-                auth_success, role = authenticate(email, password)
-                if auth_success:
-                    st.session_state.logged_in = True
-                    st.session_state.username = email
-                    st.session_state.user_role = role
-                    st.success(f"✅ Welcome! Logged in as {role}")
-                    st.rerun()
-                else:
-                    st.error("❌ Invalid credentials or account not approved")
-            else:
-                st.warning("⚠️ Please enter both email and password")
-    
-    # Show default admin credentials
-    st.info("""
-    **🎯 Default Admin Access:**
-    - **Email:** admin
-    - **Password:** admin123
-    """)
-
-def show_signup_form():
-    st.markdown("""
-    <div class="metric-card">
-        <h2>📝 Sign Up for Access</h2>
-        <p>Register and wait for admin approval</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Center-aligned toggle between login and signup
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col2:
-        auth_options = st.radio("", ["Login", "Sign Up"], horizontal=True, index=1, key="auth_radio")
-        if auth_options != st.session_state.auth_mode:
-            st.session_state.auth_mode = auth_options
-            st.rerun()
-    
-    with st.form("signup_form"):
-        email = st.text_input("📧 Email")
-        password = st.text_input("🔒 Password", type="password")
-        role = st.selectbox("👤 Requested Role", ["Researcher", "Analyst", "Viewer"])
-        submitted = st.form_submit_button("📝 Sign Up", use_container_width=True)
-        
-        if submitted:
-            if email and password:
-                # Check if email already exists
-                existing_emails = [user["email"] for user in st.session_state.approved_users + st.session_state.pending_users]
-                
-                if email.lower() in [e.lower() for e in existing_emails]:
-                    st.error("❌ Email already exists")
-                else:
-                    register_user(email, password, role)
-                    st.success("✅ Registration successful! Please wait for admin approval.")
-                    st.info("💡 Admin will review your request and approve access.")
-            else:
-                st.warning("⚠️ Please fill in all fields")
-
 def show_header():
-    col1, col2, col3 = st.columns([2, 1, 1])
-    
-    with col1:
-        st.markdown('<h1 class="main-header">Tourism Analytics </h1>', unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f'<div class="role-badge" style="background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%); padding: 0.5rem 1rem; border-radius: 20px; color: white; font-weight: bold; display: inline-block; margin: 0.5rem 0;">👤 {st.session_state.user_role}</div>', unsafe_allow_html=True)
-    
-    with col3:
-        if st.button("🚪 Logout", use_container_width=True):
-            for key in ['logged_in', 'username', 'user_role']:
-                if key in st.session_state:
-                    del st.session_state[key]
-            st.rerun()
-
-def show_admin_dashboard():
-    show_header()
-    
-    st.markdown("### 🛠️ Admin Dashboard")
-    st.markdown("**User Management & System Overview**")
-    
-    # System stats
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        pending_count = len(st.session_state.pending_users)
-        st.markdown(f"""
-        <div class="success-box" style="padding: 1rem; text-align: center;">
-            <h3>{pending_count}</h3>
-            <p>Pending Users</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        approved_count = len(st.session_state.approved_users)
-        st.markdown(f"""
-        <div class="success-box" style="padding: 1rem; text-align: center;">
-            <h3>{approved_count}</h3>
-            <p>Approved Users</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown("""
-        <div class="success-box" style="padding: 1rem; text-align: center;">
-            <h3>90.76%</h3>
-            <p>Model Accuracy</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col4:
-        st.markdown("""
-        <div class="success-box" style="padding: 1rem; text-align: center;">
-            <h3>Active</h3>
-            <p>System Status</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # Pending approvals
-    st.markdown("### ⏳ Pending User Approvals")
-    
-    if st.session_state.pending_users:
-        for user in st.session_state.pending_users:
-            st.markdown(f"""
-            <div class="pending-user-card">
-                <strong>📧 {user['email']}</strong> - <span class="user-details">Requested: {user['role']}</span><br>
-                <small class="user-details">Applied: {user['requested_date']}</small>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            col1, col2 = st.columns([1, 1])
-            with col1:
-                if st.button(f"✅ Approve {user['email']}", key=f"approve_{user['email']}"):
-                    approve_user(user['email'])
-                    st.success(f"User {user['email']} approved!")
-                    st.rerun()
-            
-            with col2:
-                if st.button(f"❌ Reject {user['email']}", key=f"reject_{user['email']}"):
-                    reject_user(user['email'])
-                    st.warning(f"User {user['email']} rejected!")
-                    st.rerun()
-            
-            st.markdown("---")
-    else:
-        st.info("🎉 No pending approvals")
-    
-    # Approved users
-    st.markdown("### ✅ Approved Users")
-    
-    if st.session_state.approved_users:
-        approved_df = pd.DataFrame(st.session_state.approved_users)
-        st.dataframe(approved_df[['email', 'role', 'approved_by']], use_container_width=True)
-    else:
-        st.info("No approved users yet")
+    st.markdown('<h1 class="main-header">Tourism Analytics </h1>', unsafe_allow_html=True)
 
 # Configure page
 st.set_page_config(
@@ -360,33 +118,6 @@ st.markdown("""
     .plot-container {
         background: linear-gradient(135deg, #232b36 0%, #2c3e50 100%);
         box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-    }
-}
-
-/* Dark mode friendly pending user card */
-.pending-user-card {
-    background: #fff3cd;
-    padding: 1rem;
-    border-radius: 8px;
-    border-left: 4px solid #ffc107;
-    margin: 0.5rem 0;
-    color: #212529;
-}
-
-.user-details {
-    color: #212529;
-    font-weight: 500;
-}
-
-@media (prefers-color-scheme: dark) {
-    .pending-user-card {
-        background: rgba(255, 243, 205, 0.15);
-        border-left: 4px solid #ffc107;
-        color: #f8f9fa;
-    }
-    
-    .user-details {
-        color: #e9ecef;
     }
 }
 </style>
@@ -1523,17 +1254,9 @@ class AdvancedTourismDashboard:
 
 def main():
     """Main application function"""
-    # Initialize session state for user management
-    init_session_state()
-    
-    # Authentication check
-    if not st.session_state.logged_in:
-        show_auth_page()
-        return
-    
     # Initialize dashboard
     dashboard = AdvancedTourismDashboard()
-    
+
     if not dashboard.system_loaded:
         st.error("System initialization failed. Please check your data files and model.")
         st.info("""
@@ -1543,28 +1266,17 @@ def main():
         - `train_lstm.py` (data processing functions)
         """)
         return
-    
-    # Navigation based on role
-    if st.session_state.user_role == "Administrator":
-        pages = {
-            "🛠️ Admin Dashboard": show_admin_dashboard,
-            "Dashboard Home": lambda: render_main_content(dashboard, "Dashboard Home"),
-            "Tourism Predictions": lambda: render_main_content(dashboard, "Tourism Predictions"),
-            "AI Model Insights": lambda: render_main_content(dashboard, "AI Model Insights")
-        }
-    else:  # Researcher, Analyst, Viewer
-        pages = {
-            "Dashboard Home": lambda: render_main_content(dashboard, "Dashboard Home"),
-            "Tourism Predictions": lambda: render_main_content(dashboard, "Tourism Predictions"),
-            "AI Model Insights": lambda: render_main_content(dashboard, "AI Model Insights")
-        }
-    
+
+    pages = {
+        "Dashboard Home": lambda: render_main_content(dashboard, "Dashboard Home"),
+        "Tourism Predictions": lambda: render_main_content(dashboard, "Tourism Predictions"),
+        "AI Model Insights": lambda: render_main_content(dashboard, "AI Model Insights")
+    }
+
     # Sidebar navigation
     st.sidebar.title("Navigation Panel")
-    st.sidebar.markdown(f"**Welcome, {st.session_state.username}!**")
-    st.sidebar.markdown(f"*{st.session_state.user_role}*")
     st.sidebar.markdown("---")
-    
+
     page = st.sidebar.radio("Select Section:", list(pages.keys()))
     
     # Show selected page

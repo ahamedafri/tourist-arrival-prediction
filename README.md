@@ -8,12 +8,11 @@ An AI-powered tourism analytics dashboard with LSTM-based predictions and intera
 - LSTM neural network forecasting
 - Interactive visualizations with Plotly
 - Seasonal pattern analysis
-- User authentication system
 - Dark mode support
 
 ## Demo
 
-Visit the live dashboard at: [streamlit.io/your-dashboard-url](https://streamlit.io/your-dashboard-url)
+Visit the live dashboard at: [lstmapp.streamlit.app](https://lstmapp.streamlit.app/)
 
 ## Setup
 
@@ -28,9 +27,3 @@ The dashboard uses tourism data from 2010-2025 with monthly visitor counts by co
 ## Model
 
 The forecasting engine uses a Long Short-Term Memory (LSTM) neural network trained on historical tourism data.
-
-## Login
-
-Default admin credentials:
-- Username: admin
-- Password: admin123
